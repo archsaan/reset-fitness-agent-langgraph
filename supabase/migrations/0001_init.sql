@@ -1,10 +1,9 @@
 -- App tables. LangGraph's own checkpoint tables are created separately by
 -- scripts/setup_checkpointer.py (AsyncPostgresSaver.setup()).
--- Names keep the adk_ prefix so the existing KB data can be copied over as-is.
 
 create extension if not exists vector;
 
-create table if not exists adk_kb_docs (
+create table if not exists kb_docs (
     id serial primary key,
     agent_slug text not null,
     filename text not null,
@@ -13,14 +12,14 @@ create table if not exists adk_kb_docs (
     uploaded_at timestamptz default now()
 );
 
-create table if not exists adk_kb_chunks (
+create table if not exists kb_chunks (
     id serial primary key,
-    doc_id integer not null references adk_kb_docs(id) on delete cascade,
+    doc_id integer not null references kb_docs(id) on delete cascade,
     agent_slug text not null,
     chunk_text text not null,
     embedding vector(512)
 );
-create index if not exists adk_kb_chunks_agent_idx on adk_kb_chunks (agent_slug);
+create index if not exists kb_chunks_agent_idx on kb_chunks (agent_slug);
 
 create table if not exists usage_logs (
     id serial primary key,
@@ -59,8 +58,8 @@ create table if not exists booking_attempts (
 
 -- These tables are only ever touched by the backend with the database
 -- role. Lock them against the public PostgREST API.
-alter table adk_kb_docs enable row level security;
-alter table adk_kb_chunks enable row level security;
+alter table kb_docs enable row level security;
+alter table kb_chunks enable row level security;
 alter table usage_logs enable row level security;
 alter table agent_configs enable row level security;
 alter table rate_limits enable row level security;

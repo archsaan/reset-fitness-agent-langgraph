@@ -60,7 +60,7 @@ async def _embed(texts: list[str], input_type: str) -> list[list[float]]:
 async def list_kb_docs(agent_slug: str) -> list[dict]:
     async with pool().connection() as conn:
         cur = await conn.execute(
-            "SELECT id, filename, active, uploaded_at FROM adk_kb_docs "
+            "SELECT id, filename, active, uploaded_at FROM kb_docs "
             "WHERE agent_slug = %s ORDER BY uploaded_at DESC", (agent_slug,))
         return await cur.fetchall()
 
@@ -68,7 +68,7 @@ async def list_kb_docs(agent_slug: str) -> list[dict]:
 async def insert_kb_doc(agent_slug: str, filename: str, content: str) -> int:
     async with pool().connection() as conn:
         cur = await conn.execute(
-            "INSERT INTO adk_kb_docs (agent_slug, filename, content, active) "
+            "INSERT INTO kb_docs (agent_slug, filename, content, active) "
             "VALUES (%s, %s, %s, TRUE) RETURNING id", (agent_slug, filename, content))
         return (await cur.fetchone())["id"]
 
@@ -76,14 +76,14 @@ async def insert_kb_doc(agent_slug: str, filename: str, content: str) -> int:
 async def toggle_kb_doc(doc_id: int) -> bool | None:
     async with pool().connection() as conn:
         cur = await conn.execute(
-            "UPDATE adk_kb_docs SET active = NOT active WHERE id = %s RETURNING active", (doc_id,))
+            "UPDATE kb_docs SET active = NOT active WHERE id = %s RETURNING active", (doc_id,))
         row = await cur.fetchone()
         return row["active"] if row else None
 
 
 async def delete_kb_doc(doc_id: int) -> None:
     async with pool().connection() as conn:
-        await conn.execute("DELETE FROM adk_kb_docs WHERE id = %s", (doc_id,))
+        await conn.execute("DELETE FROM kb_docs WHERE id = %s", (doc_id,))
 
 
 async def index_kb_doc(doc_id: int, agent_slug: str, content: str) -> int:
@@ -95,10 +95,10 @@ async def index_kb_doc(doc_id: int, agent_slug: str, content: str) -> int:
         return 0
     async with pool().connection() as conn:
         async with conn.transaction():
-            await conn.execute("DELETE FROM adk_kb_chunks WHERE doc_id = %s", (doc_id,))
+            await conn.execute("DELETE FROM kb_chunks WHERE doc_id = %s", (doc_id,))
             async with conn.cursor() as cur:
                 await cur.executemany(
-                    "INSERT INTO adk_kb_chunks (doc_id, agent_slug, chunk_text, embedding) "
+                    "INSERT INTO kb_chunks (doc_id, agent_slug, chunk_text, embedding) "
                     "VALUES (%s, %s, %s, %s)",
                     [(doc_id, agent_slug, c, Vector(e)) for c, e in zip(chunks, embeddings)],
                 )
@@ -110,7 +110,7 @@ async def index_kb_doc(doc_id: int, agent_slug: str, content: str) -> int:
 async def _active_text(agent_slug: str) -> str:
     async with pool().connection() as conn:
         cur = await conn.execute(
-            "SELECT content FROM adk_kb_docs WHERE agent_slug = %s AND active = TRUE", (agent_slug,))
+            "SELECT content FROM kb_docs WHERE agent_slug = %s AND active = TRUE", (agent_slug,))
         rows = await cur.fetchall()
     return "\n\n---\n\n".join(r["content"] for r in rows)
 
@@ -118,7 +118,7 @@ async def _active_text(agent_slug: str) -> str:
 async def _retrieve(agent_slug: str, question: str) -> str | None:
     async with pool().connection() as conn:
         cur = await conn.execute(
-            "SELECT EXISTS (SELECT 1 FROM adk_kb_chunks WHERE agent_slug = %s) AS e", (agent_slug,))
+            "SELECT EXISTS (SELECT 1 FROM kb_chunks WHERE agent_slug = %s) AS e", (agent_slug,))
         if not (await cur.fetchone())["e"]:
             return None
     vectors = await _embed([question], "query")
@@ -126,7 +126,7 @@ async def _retrieve(agent_slug: str, question: str) -> str | None:
         return None
     async with pool().connection() as conn:
         cur = await conn.execute(
-            "SELECT c.chunk_text FROM adk_kb_chunks c JOIN adk_kb_docs d ON d.id = c.doc_id "
+            "SELECT c.chunk_text FROM kb_chunks c JOIN kb_docs d ON d.id = c.doc_id "
             "WHERE d.active = TRUE AND c.agent_slug = %s "
             "ORDER BY c.embedding <=> %s LIMIT %s",
             (agent_slug, Vector(vectors[0]), KB_RETRIEVAL_TOP_K))
