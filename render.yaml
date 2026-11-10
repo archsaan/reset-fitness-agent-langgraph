@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: reset-fitness-agents
+    runtime: docker
+    plan: starter            # free tier spins down after ~15 min idle; chat needs an always-on plan
+    healthCheckPath: /healthz
+    envVars:
+      - key: DATABASE_URL            # Neon POOLED connection string (host contains "-pooler")
+        sync: false
+      - key: DIRECT_DATABASE_URL     # Neon DIRECT (non-pooled) string, for setup_checkpointer only
+        sync: false
+      - key: JWT_SECRET              # shared with the service that mints member tokens
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: VOYAGE_API_KEY
+        sync: false
+      - key: SCHEDULE_API_KEY
+        sync: false
+      - key: CORS_ORIGINS            # e.g. https://your-dashboard.example.com
+        sync: false
+      - key: TRIBE_APP_MODEL
+        value: gemini-3.5-flash-lite
+      - key: FACILITY_ID
+        value: "2"

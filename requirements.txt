@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+httpx
+python-dotenv
+pydantic>=2
+PyJWT[crypto]
+psycopg[binary,pool]
+pgvector
+voyageai
+langgraph
+langgraph-checkpoint-postgres
+langchain-core
+langchain-google-genai
